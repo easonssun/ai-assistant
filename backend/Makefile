@@ -14,7 +14,7 @@ default: run
 
 # 运行服务器
 run:
-	$(fastapi) dev $(src_dir)/main.py --port 8001
+	$(fastapi) dev $(src_dir)/main.py --port 8010
 
 # 安装依赖
 install:

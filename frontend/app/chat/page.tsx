@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import type { MessageBoxProps } from './components/MessageBox'
 import { BotMessage, UserMessage } from './components/MessageBox'
 import cn from '@/lib/cn'
+import { getServerApiBase } from '@/lib/getEnv'
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<MessageBoxProps[]>([])
@@ -39,7 +40,8 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, { content: input, type: 'user' }])
     setInputDisabled(true)
 
-    const response = await fetch('http://localhost:8001/api/chat', {
+    const serverApiBase = getServerApiBase()
+    const response = await fetch(`${serverApiBase}api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ input }),

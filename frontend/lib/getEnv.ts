@@ -22,3 +22,11 @@ export const getServerUrl = () => {
   }
   return serverUrl
 }
+
+export const getServerApiBase = () => {
+  const serverApiBase = process.env.NEXT_PUBLIC_API_BASE
+  if (!serverApiBase) {
+    throw new Error('NEXT_PUBLIC_API_BASE is not set')
+  }
+  return serverApiBase
+}

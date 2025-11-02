@@ -69,13 +69,13 @@ DEEPSEEK_API_BASE=https://api.deepseek.com
 make run
 ```
 
-服务器将在 `http://localhost:8001` 启动。
+服务器将在 `http://localhost:8010` 启动。
 
 ## API文档
 
 启动服务器后，访问以下地址查看API文档：
-- **Swagger UI**: http://localhost:8001/docs
-- **ReDoc**: http://localhost:8001/redoc
+- **Swagger UI**: http://localhost:8010/docs
+- **ReDoc**: http://localhost:8010/redoc
 
 ### 聊天接口
 
