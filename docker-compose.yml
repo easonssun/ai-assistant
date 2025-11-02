@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-assistant-postgres
+    environment:
+      POSTGRES_DB: ai_assistant
+      POSTGRES_USER: ai_user
+      POSTGRES_PASSWORD: ai_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ai-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ai_user -d ai_assistant" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Milvus向量数据库
+  milvus:
+    image: milvusdb/milvus:v2.4.0
+    container_name: ai-assistant-milvus
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+    ports:
+      - "19530:19530"
+      - "9091:9091"
+    volumes:
+      - milvus_data:/var/lib/milvus
+    networks:
+      - ai-network
+    depends_on:
+      - etcd
+      - minio
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9091/healthz" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Milvus依赖服务 - etcd
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: ai-assistant-etcd
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: 4294967296
+      ETCD_SNAPSHOT_COUNT: 50000
+    volumes:
+      - etcd_data:/etcd
+    networks:
+      - ai-network
+
+  # Milvus依赖服务 - minio
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: ai-assistant-minio
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/minio_data
+    networks:
+      - ai-network
+    command: minio server /minio_data --console-address ":9001"
+  # docker-compose 只用来启动 postgres 和 Milvus 快速配置开发环境，不用来启动Backend和Frontend
+
+  # Backend服务
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: ai-assistant-backend
+  #   environment:
+  #     - DATABASE_URL=postgresql://ai_user:ai_password@postgres:5432/ai_assistant
+  #     - MILVUS_HOST=milvus
+  #     - MILVUS_PORT=19530
+  #   ports:
+  #     - "8010:8010"
+  #   volumes:
+  #     - ./backend:/app
+  #   networks:
+  #     - ai-network
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     milvus:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: [ "CMD", "curl", "-f", "http://localhost:8010/docs" ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # # Frontend服务
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: ai-assistant-frontend
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8010
+  #   ports:
+  #     - "3000:3000"
+  #   volumes:
+  #     - ./frontend:/app
+  #     - /app/node_modules
+  #   networks:
+  #     - ai-network
+  #   depends_on:
+  #     - backend
+  #   healthcheck:
+  #     test: [ "CMD", "curl", "-f", "http://localhost:3000" ]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # 网络配置
+networks:
+  ai-network:
+    driver: bridge
+
+# 数据卷配置
+volumes:
+  postgres_data:
+  milvus_data:
+  etcd_data:
+  minio_data:
