@@ -10,54 +10,52 @@ MILVUS_HOST = os.getenv("MILVUS_HOST", "127.0.0.1")
 MILVUS_PORT = os.getenv("MILVUS_PORT", "19530")
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "LangChainDemo")
 
-# --- 1. 加载文件 ---
-# 根据文件扩展名选择不同的加载器
-if FILE_PATH.endswith(".pdf"):
-    loader = PyPDFLoader(FILE_PATH)
-else:
-    loader = TextLoader(FILE_PATH, encoding="utf-8")
+# --- 初始化嵌入模型 ---
+def initEmbeddings():
+    print("正在加载嵌入模型...")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={'device': 'cpu'},
+        encode_kwargs={'normalize_embeddings': True}
+    )
+    print("嵌入模型加载完成")
+    return embeddings
 
-documents = loader.load()
-print(f"成功加载文件: {FILE_PATH}")
+Embeddings = initEmbeddings()
+
+# --- 连接 Milvus ---
+VectorStore = Milvus(
+    embedding_function=Embeddings,
+    collection_name=COLLECTION_NAME,
+    connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
+)
+
+def getLoader(file_path: str):
+    if file_path.endswith(".pdf"):
+        return PyPDFLoader(file_path)
+    else:
+        return TextLoader(file_path, encoding="utf-8")
+
+def loadDocuments(file_path: str):
+    loader = getLoader(file_path)
+    documents = loader.load()
+    print(f"成功加载文件: {file_path}")
+    return documents
+
+documents = loadDocuments(loader, FILE_PATH)
 
 # --- 2. 文本切分 ---
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
-docs = text_splitter.split_documents(documents)
-print(f"文档被切分为 {len(docs)} 个块")
+def splitDocuments(documents: list[Document]):
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
+    docs = text_splitter.split_documents(documents)
+    print(f"文档被切分为 {len(docs)} 个块")
+    return docs
 
-# --- 3. 初始化嵌入模型 ---
-print("正在加载嵌入模型...")
-embeddings = HuggingFaceEmbeddings(
-    model_name="shibing624/text2vec-base-chinese",
-    model_kwargs={'device': 'cpu'},
-    encode_kwargs={'normalize_embeddings': True}
-)
-print("嵌入模型加载完成")
+docs = splitDocuments(documents)
 
-# --- 4. 存入 Milvus ---
-print(f"正在将数据存入 Milvus 集合 '{COLLECTION_NAME}'...")
-vector_store = Milvus.from_documents(
-    documents=docs,
-    embedding=embeddings,
-    collection_name=COLLECTION_NAME,
-    connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
-    drop_old=True
-)
-print("数据成功存入 Milvus")
 
-# --- 5. 验证与查询 ---
-db = Milvus(
-    embedding_function=embeddings,
-    collection_name=COLLECTION_NAME,
-    connection_args={"host": MILVUS_HOST, "port": MILVUS_PORT},
-)
-
-query = "机器学习的核心是什么？"
-print(f"\n执行查询: '{query}'")
-
-results = db.similarity_search(query, k=2)
-
-print("搜索结果:")
-for i, doc in enumerate(results):
-    print(f"\n--- 结果 {i+1} ---")
-    print(f"内容: {doc.page_content}")
+def initVectors(docs: list[Document]):
+    print(f"正在将数据存入 Milvus 集合 '{COLLECTION_NAME}'...")
+    # VectorStore.add_documents(docs)
+    VectorStore.from_documents(docs)
+    print("数据成功存入 Milvus")

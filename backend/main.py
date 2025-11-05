@@ -6,7 +6,8 @@ import json
 import asyncio
 from typing import AsyncGenerator
 from langchain_core.callbacks import BaseCallbackHandler
-from llm.model import chain_with_history, SESSION_ID
+from llm import chain_with_history, SESSION_ID
+from milvus import VectorStore, initVectors
 
 app = FastAPI(title="AI Chat Box API", description="基于DeepSeek的聊天API")
 
@@ -90,3 +91,27 @@ async def chat(request: ChatRequest):
             "Connection": "keep-alive",
         }
     )
+
+@app.get("/api/test_vector")
+async def test_vector():
+    """
+    向量初始化入库
+    """
+    VectorStore.init_vectors()
+    initVectors(docs)
+    """
+    测试向量搜索
+    """
+    query = "机器学习的核心是什么？"
+    results = VectorStore.similarity_search(query, k=2)
+    
+    return {
+        "query": query,
+        "results": [
+            {
+                "content": doc.page_content,
+                "metadata": doc.metadata
+            }
+            for doc in results
+        ]
+    }
