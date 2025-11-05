@@ -1,7 +1,7 @@
 # 项目路径
 src_dir := $(PWD)
 # 虚拟环境路径
-venv_dir := $(src_dir)/ai-chat-server
+venv_dir := $(src_dir)/.venv
 # Python解释器路径
 python := $(venv_dir)/bin/python
 # pip路径
