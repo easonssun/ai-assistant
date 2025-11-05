@@ -22,13 +22,50 @@ services:
       timeout: 10s
       retries: 3
 
+  # Milvus依赖服务 - etcd
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.5
+    container_name: ai-assistant-etcd
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: 4294967296
+      ETCD_SNAPSHOT_COUNT: 50000
+    volumes:
+      - etcd_data:/etcd
+    networks:
+      - ai-network
+    command: etcd -advertise-client-urls=http://127.0.0.1:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+
+  # Milvus依赖服务 - minio
+  minio:
+    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
+    container_name: ai-assistant-minio
+    environment:
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+    ports:
+      - "9010:9010"
+      - "9011:9011"
+    volumes:
+      - minio_data:/minio_data
+    networks:
+      - ai-network
+    command: minio server /minio_data --address ":9010" --console-address ":9011"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9010/minio/health/live" ]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
   # Milvus向量数据库
   milvus:
-    image: milvusdb/milvus:v2.4.0
+    image: milvusdb/milvus:v2.2.11
+    command: [ "milvus", "run", "standalone" ]
     container_name: ai-assistant-milvus
     environment:
       ETCD_ENDPOINTS: etcd:2379
-      MINIO_ADDRESS: minio:9000
+      MINIO_ADDRESS: minio:9010
     ports:
       - "19530:19530"
       - "9091:9091"
@@ -44,36 +81,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
-  # Milvus依赖服务 - etcd
-  etcd:
-    image: quay.io/coreos/etcd:v3.5.5
-    container_name: ai-assistant-etcd
-    environment:
-      ETCD_AUTO_COMPACTION_MODE: revision
-      ETCD_AUTO_COMPACTION_RETENTION: "1000"
-      ETCD_QUOTA_BACKEND_BYTES: 4294967296
-      ETCD_SNAPSHOT_COUNT: 50000
-    volumes:
-      - etcd_data:/etcd
-    networks:
-      - ai-network
-
-  # Milvus依赖服务 - minio
-  minio:
-    image: minio/minio:RELEASE.2023-03-20T20-16-18Z
-    container_name: ai-assistant-minio
-    environment:
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    volumes:
-      - minio_data:/minio_data
-    networks:
-      - ai-network
-    command: minio server /minio_data --console-address ":9001"
   # docker-compose 只用来启动 postgres 和 Milvus 快速配置开发环境，不用来启动Backend和Frontend
 
   # Backend服务
